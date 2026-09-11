@@ -3,8 +3,8 @@ services:
     name: not-lify-api
     runtime: node
     rootDir: backend
-    buildCommand: npm install --include=dev && npx prisma generate && npm run build
-    startCommand: npm start
+    buildCommand: if [ -d backend ]; then cd backend; fi && npm install --include=dev && npx prisma generate && npm run build
+    startCommand: if [ -d backend ]; then cd backend; fi && npm start
     healthCheckPath: /
     envVars:
       - key: NODE_VERSION
