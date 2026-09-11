@@ -61,6 +61,7 @@ REDIS_URL="redis://localhost:6379"
 JWT_SECRET="a-long-random-secret"
 JWT_EXPIRES_IN="1d"
 GOOGLE_CLIENT_ID="your-google-oauth-client-id"
+CORS_ORIGIN="https://not-lify.vercel.app"
 PORT=5000
 ```
 

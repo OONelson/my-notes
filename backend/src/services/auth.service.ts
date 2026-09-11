@@ -35,7 +35,7 @@ export const signupUser = async ({ email, password }: RegisterDTO) => {
 export const loginUser = async ({ email, password }: LoginDTO) => {
 	const user = await prisma.user.findUnique({ where: { email } });
 	if (!user) {
-		throw new Error("Invalid email or password");
+		throw new Error("Invalid, Try signing up instead");
 	}
 
 	const isMatch = await bcrypt.compare(password, user.password);
@@ -46,7 +46,10 @@ export const loginUser = async ({ email, password }: LoginDTO) => {
 	const token = jwt.sign(
 		{ id: user.id, email: user.email },
 		process.env.JWT_SECRET!,
-		{ expiresIn: (process.env.JWT_EXPIRES_IN ?? "7d") as jwt.SignOptions["expiresIn"] },
+		{
+			expiresIn: (process.env.JWT_EXPIRES_IN ??
+				"7d") as jwt.SignOptions["expiresIn"],
+		},
 	);
 
 	const { password: _, ...safeUser } = user;

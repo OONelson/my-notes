@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import express from "express";
-import cors from "cors";
+import cors, { type CorsOptions } from "cors";
 import cookieParser from "cookie-parser";
 import compression from "compression";
 import rateLimit from "express-rate-limit";
@@ -18,13 +18,38 @@ import { errorHandler } from "./middleware/errorHandler";
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+const DEFAULT_ALLOWED_ORIGINS = [
+	"http://localhost:5173",
+	"http://localhost:5176",
+	"https://not-lify.vercel.app",
+];
+
+const normalizeOrigin = (origin: string) => origin.trim().replace(/\/$/, "");
+
+const configuredOrigins =
+	process.env.CORS_ORIGIN?.split(",")
+		.map(normalizeOrigin)
+		.filter(Boolean) ?? [];
+
+const allowedOrigins = new Set([
+	...DEFAULT_ALLOWED_ORIGINS.map(normalizeOrigin),
+	...configuredOrigins,
+]);
+
+const corsOptions: CorsOptions = {
+	origin(origin, callback) {
+		if (!origin || allowedOrigins.has(normalizeOrigin(origin))) {
+			callback(null, true);
+			return;
+		}
+
+		callback(new Error(`CORS blocked origin: ${origin}`));
+	},
+	credentials: true,
+};
+
 app.use(compression());
-app.use(
-	cors({
-		origin: process.env.CORS_ORIGIN || "http://localhost:5176",
-		credentials: true,
-	}),
-);
+app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
