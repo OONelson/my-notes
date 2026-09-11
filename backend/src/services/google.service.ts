@@ -1,4 +1,6 @@
 import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
+import { randomBytes } from "crypto";
 import prisma from "../config/prisma";
 
 interface GoogleTokenInfo {
@@ -15,6 +17,12 @@ interface GoogleUserInfo {
 }
 
 export const googleSignIn = async (accessToken: string) => {
+	const googleClientId = process.env.GOOGLE_CLIENT_ID;
+
+	if (!googleClientId) {
+		throw new Error("Google sign-in is not configured");
+	}
+
 	const tokenInfoRes = await fetch(
 		`https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(accessToken)}`,
 	);
@@ -25,7 +33,7 @@ export const googleSignIn = async (accessToken: string) => {
 
 	const tokenInfo = (await tokenInfoRes.json()) as GoogleTokenInfo;
 
-	if (tokenInfo.aud !== process.env.GOOGLE_CLIENT_ID) {
+	if (tokenInfo.aud !== googleClientId) {
 		throw new Error("Invalid Google token audience");
 	}
 
@@ -46,30 +54,38 @@ export const googleSignIn = async (accessToken: string) => {
 
 	const { email, sub: googleId, name } = profile;
 
-  let user = await prisma.user.findUnique({ where: { email } });
+	let user = await prisma.user.findUnique({ where: { email } });
 
-  if (!user) {
-    user = await prisma.user.create({
-      data: {
-        email,
-        password: googleId,
-        googleId
-      },
-    })
-  } else if (!user.googleId) {
-    user = await prisma.user.update({
-      where: { email },
-      data: { googleId }
-    })
-  }
+	if (!user) {
+		const placeholderPassword = await bcrypt.hash(
+			randomBytes(32).toString("hex"),
+			12,
+		);
 
-  const token = jwt.sign(
-    { id: user.id, email: user.email },
-    process.env.JWT_SECRET!,
-    { expiresIn: (process.env.JWT_EXPIRES_IN ?? "7d") as jwt.SignOptions["expiresIn"] },
-  );
+		user = await prisma.user.create({
+			data: {
+				email,
+				password: placeholderPassword,
+				googleId,
+			},
+		});
+	} else if (!user.googleId) {
+		user = await prisma.user.update({
+			where: { email },
+			data: { googleId },
+		});
+	}
 
-  const { password: _password, ...safeUser } = user;
+	const token = jwt.sign(
+		{ id: user.id, email: user.email },
+		process.env.JWT_SECRET!,
+		{
+			expiresIn: (process.env.JWT_EXPIRES_IN ??
+				"7d") as jwt.SignOptions["expiresIn"],
+		},
+	);
 
-  return { user: safeUser, token, name };
+	const { password: _password, ...safeUser } = user;
+
+	return { user: safeUser, token, name };
 };

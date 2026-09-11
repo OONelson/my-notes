@@ -24,6 +24,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
 
   const { setCredentials } = useAuth();
   const navigate = useNavigate();
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
   const validate = (): boolean => {
     if (!email.trim()) {
@@ -64,6 +65,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
   };
 
   const handleGoogleLogin = useGoogleLogin({
+    scope: "openid email profile",
     onSuccess: async (tokenResponse) => {
       setFormError(null);
       setIsLoading(true);
@@ -72,16 +74,43 @@ const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
 
         setCredentials(result);
         navigate("/home", { replace: true });
-      } catch {
-        setFormError("Google sign-in failed. Please try again or use email.");
+      } catch (err: any) {
+        console.error("Google backend auth failed:", err);
+        setFormError(
+          err?.response?.data?.message ??
+            "Google sign-in failed. Please try again or use email.",
+        );
       } finally {
         setIsLoading(false);
       }
     },
-    onError: () => {
-      setFormError("Google sign-in failed. Please try again or use email.");
+    onError: (errorResponse) => {
+      console.error("Google OAuth failed:", errorResponse);
+      setFormError(
+        errorResponse.error_description ??
+          "Google sign-in failed. Please try again or use email.",
+      );
+    },
+    onNonOAuthError: (nonOAuthError) => {
+      console.error("Google sign-in popup failed:", nonOAuthError);
+      setFormError(
+        nonOAuthError.type === "popup_closed"
+          ? "Google sign-in was closed before it finished."
+          : "Google sign-in popup could not open. Please disable popup blockers and try again.",
+      );
     },
   });
+
+  const startGoogleLogin = () => {
+    setFormError(null);
+
+    if (!googleClientId) {
+      setFormError("Google sign-in is not configured for this app.");
+      return;
+    }
+
+    handleGoogleLogin();
+  };
 
   return (
     <main className="grid min-h-screen md:grid-cols-2">
@@ -119,7 +148,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ mode }) => {
           <Button
             className="w-full flex items-center justify-center gap-2 border border-gray-200 rounded-xl bg-white text-gray-700 text-sm font-medium py-2.5 transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:shadow-sm cursor-pointer"
             isDisabled={isLoading}
-            onPress={() => handleGoogleLogin()}
+            onPress={startGoogleLogin}
           >
             <GoogleIcon />
             Continue with Google
