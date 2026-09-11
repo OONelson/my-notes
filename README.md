@@ -72,6 +72,13 @@ npm run db:generate
 npm run db:push       # or: npm run db:migrate
 ```
 
+For deployments where the platform sets `NODE_ENV=production` before building,
+install dev dependencies during the build step so TypeScript can find Node types:
+
+```bash
+npm install --include=dev && npx prisma generate && npm run build
+```
+
 Start the API:
 
 ```bash
